@@ -9,7 +9,6 @@ const upload = multer({ dest: "uploads/" });
 
 const MONDAY_TOKEN = process.env.MONDAY_TOKEN;
 
-// ================= UPLOAD ROUTE =================
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
     const file = req.file;
@@ -22,8 +21,8 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
     const formData = new FormData();
     formData.append("query", `
-      mutation ($file: File!) {
-        add_file_to_column (
+      mutation {
+        add_file_to_column(
           item_id: ${itemId},
           column_id: "${columnId}",
           file: $file
@@ -48,21 +47,13 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
     fs.unlinkSync(file.path);
 
-    return res.json({
-      success: true
-    });
+    res.json({ success: true });
 
   } catch (err) {
     console.error(err);
-    return res.json({
-      success: false
-    });
+    res.json({ success: false });
   }
 });
 
-// ================= SERVER START =================
 const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
+app.listen(PORT, () => console.log("Server running on port " + PORT));
