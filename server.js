@@ -23,10 +23,10 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     console.log("Column:", columnId);
 
     const query = `
-      mutation ($file: File!) {
+      mutation ($file: File!, $itemId: ID!, $columnId: String!) {
         add_file_to_column(
-          item_id: ${itemId},
-          column_id: "${columnId}",
+          item_id: $itemId,
+          column_id: $columnId,
           file: $file
         ) {
           id
@@ -39,9 +39,11 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     formData.append(
       "operations",
       JSON.stringify({
-        query,
+        query: query,
         variables: {
-          file: null
+          file: null,
+          itemId: itemId,
+          columnId: columnId
         }
       })
     );
@@ -58,8 +60,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     const response = await fetch("https://api.monday.com/v2/file", {
       method: "POST",
       headers: {
-        Authorization: MONDAY_TOKEN,
-        ...formData.getHeaders()
+        Authorization: MONDAY_TOKEN
       },
       body: formData
     });
@@ -81,9 +82,6 @@ app.post("/upload", upload.single("file"), async (req, res) => {
   }
 });
 
-// =========================
-// SERVER START
-// =========================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
