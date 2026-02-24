@@ -9,23 +9,23 @@ const upload = multer({ dest: "uploads/" });
 
 const MONDAY_TOKEN = process.env.MONDAY_TOKEN;
 const BOARD_ID = process.env.BOARD_ID;
-const FILE_COLUMN_ID = process.env.FILE_COLUMN_ID;
-const STATUS_COLUMN_ID = process.env.STATUS_COLUMN_ID;
 
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
     const file = req.file;
     const itemId = req.body.itemId;
+    const columnId = req.body.columnId;
 
-    console.log("File received:", file.originalname);
-    console.log("Item ID:", itemId);
+    console.log("Uploading file:", file.originalname);
+    console.log("Item:", itemId);
+    console.log("Column:", columnId);
 
     const formData = new FormData();
     formData.append("query", `
       mutation ($file: File!) {
         add_file_to_column (
           item_id: ${itemId},
-          column_id: "${FILE_COLUMN_ID}",
+          column_id: "${columnId}",
           file: $file
         ) {
           id
@@ -45,36 +45,15 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     const result = await response.json();
     console.log("Monday response:", result);
 
-    // 🔥 Update status column
-    await fetch("https://api.monday.com/v2", {
-      method: "POST",
-      headers: {
-        Authorization: MONDAY_TOKEN,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        query: `
-          mutation {
-            change_column_value(
-              board_id: ${BOARD_ID},
-              item_id: ${itemId},
-              column_id: "${STATUS_COLUMN_ID}",
-              value: "{\"label\":\"Submitted\"}"
-            ) { id }
-          }
-        `
-      })
-    });
-
     fs.unlinkSync(file.path);
 
     return res.json({
       success: true,
-      message: "File uploaded successfully"
+      message: "Uploaded successfully"
     });
 
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
+    console.error(err);
     return res.json({
       success: false,
       message: "Upload failed"
@@ -82,4 +61,8 @@ app.post("/upload", upload.single("file"), async (req, res) => {
   }
 });
 
-app.listen(3000, () => console.log("Server running"));
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("Server running on port " + PORT);
+});
