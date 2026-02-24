@@ -10,6 +10,9 @@ const upload = multer({ dest: "uploads/" });
 const MONDAY_TOKEN = process.env.MONDAY_TOKEN;
 const BOARD_ID = process.env.BOARD_ID;
 
+// =========================
+// UPLOAD ROUTE
+// =========================
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
     const file = req.file;
@@ -20,22 +23,37 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     console.log("Item:", itemId);
     console.log("Column:", columnId);
 
+    // ✅ Correct Monday multipart format
     const query = `
-mutation ($file: File!) {
-  add_file_to_column (
-    item_id: ${itemId},
-    column_id: "${columnId}",
-    file: $file
-  ) {
-    id
-  }
-}
-`;
+      mutation ($file: File!) {
+        add_file_to_column (
+          item_id: ${itemId},
+          column_id: "${columnId}",
+          file: $file
+        ) {
+          id
+        }
+      }
+    `;
 
-const formData = new FormData();
-formData.append("query", query);
-formData.append("map", JSON.stringify({ "file": ["variables.file"] }));
-formData.append("variables[file]", fs.createReadStream(file.path));
+    const formData = new FormData();
+
+    formData.append(
+      "operations",
+      JSON.stringify({
+        query: query,
+        variables: { file: null }
+      })
+    );
+
+    formData.append(
+      "map",
+      JSON.stringify({
+        "0": ["variables.file"]
+      })
+    );
+
+    formData.append("0", fs.createReadStream(file.path));
 
     const response = await fetch("https://api.monday.com/v2/file", {
       method: "POST",
@@ -56,7 +74,8 @@ formData.append("variables[file]", fs.createReadStream(file.path));
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("UPLOAD ERROR:", err);
+
     return res.json({
       success: false,
       message: "Upload failed"
@@ -64,9 +83,11 @@ formData.append("variables[file]", fs.createReadStream(file.path));
   }
 });
 
+// =========================
+// SERVER START
+// =========================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
 });
-
