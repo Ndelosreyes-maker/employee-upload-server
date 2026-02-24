@@ -8,7 +8,6 @@ const app = express();
 const upload = multer({ dest: "uploads/" });
 
 const MONDAY_TOKEN = process.env.MONDAY_TOKEN;
-const BOARD_ID = process.env.BOARD_ID;
 
 // =========================
 // UPLOAD ROUTE
@@ -23,10 +22,9 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     console.log("Item:", itemId);
     console.log("Column:", columnId);
 
-    // ✅ Correct Monday multipart format
     const query = `
       mutation ($file: File!) {
-        add_file_to_column (
+        add_file_to_column(
           item_id: ${itemId},
           column_id: "${columnId}",
           file: $file
@@ -41,8 +39,10 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     formData.append(
       "operations",
       JSON.stringify({
-        query: query,
-        variables: { file: null }
+        query,
+        variables: {
+          file: null
+        }
       })
     );
 
@@ -58,7 +58,8 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     const response = await fetch("https://api.monday.com/v2/file", {
       method: "POST",
       headers: {
-        Authorization: MONDAY_TOKEN
+        Authorization: MONDAY_TOKEN,
+        ...formData.getHeaders()
       },
       body: formData
     });
@@ -68,18 +69,15 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
     fs.unlinkSync(file.path);
 
-    return res.json({
-      success: true,
-      message: "Uploaded successfully"
-    });
+    if (result.errors) {
+      return res.json({ success: false, error: result.errors });
+    }
+
+    return res.json({ success: true });
 
   } catch (err) {
     console.error("UPLOAD ERROR:", err);
-
-    return res.json({
-      success: false,
-      message: "Upload failed"
-    });
+    return res.json({ success: false, error: err.message });
   }
 });
 
