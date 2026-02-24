@@ -7,46 +7,79 @@ import fs from "fs";
 const app = express();
 const upload = multer({ dest: "uploads/" });
 
-const mondayToken = process.env.MONDAY_TOKEN;
+const MONDAY_TOKEN = process.env.MONDAY_TOKEN;
+const BOARD_ID = process.env.BOARD_ID;
+const FILE_COLUMN_ID = process.env.FILE_COLUMN_ID;
+const STATUS_COLUMN_ID = process.env.STATUS_COLUMN_ID;
 
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
+    const file = req.file;
     const itemId = req.body.itemId;
-    const columnId = req.body.columnId;
-    const filePath = req.file.path;
 
-    const query = `
-      mutation ($file: File!) {
-        add_file_to_column(
-          item_id: ${itemId},
-          column_id: "${columnId}",
-          file: $file
-        ) { id }
-      }
-    `;
+    console.log("File received:", file.originalname);
+    console.log("Item ID:", itemId);
 
     const formData = new FormData();
-    formData.append("query", query);
-    formData.append("variables[file]", fs.createReadStream(filePath));
+    formData.append("query", `
+      mutation ($file: File!) {
+        add_file_to_column (
+          item_id: ${itemId},
+          column_id: "${FILE_COLUMN_ID}",
+          file: $file
+        ) {
+          id
+        }
+      }
+    `);
+    formData.append("file", fs.createReadStream(file.path));
 
     const response = await fetch("https://api.monday.com/v2/file", {
       method: "POST",
-      headers: { Authorization: mondayToken },
+      headers: {
+        Authorization: MONDAY_TOKEN
+      },
       body: formData
     });
 
     const result = await response.json();
-    console.log(result);
+    console.log("Monday response:", result);
 
-    res.json(result);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Upload failed");
+    // 🔥 Update status column
+    await fetch("https://api.monday.com/v2", {
+      method: "POST",
+      headers: {
+        Authorization: MONDAY_TOKEN,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        query: `
+          mutation {
+            change_column_value(
+              board_id: ${BOARD_ID},
+              item_id: ${itemId},
+              column_id: "${STATUS_COLUMN_ID}",
+              value: "{\"label\":\"Submitted\"}"
+            ) { id }
+          }
+        `
+      })
+    });
+
+    fs.unlinkSync(file.path);
+
+    return res.json({
+      success: true,
+      message: "File uploaded successfully"
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.json({
+      success: false,
+      message: "Upload failed"
+    });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
+app.listen(3000, () => console.log("Server running"));
