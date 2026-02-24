@@ -9,58 +9,49 @@ const upload = multer({ dest: "uploads/" });
 
 const MONDAY_TOKEN = process.env.MONDAY_TOKEN;
 
-// =========================
-// UPLOAD ROUTE
-// =========================
+// ===============================
+// UPLOAD TO MONDAY
+// ===============================
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
+    const { itemId, columnId } = req.body;
     const file = req.file;
-    const itemId = req.body.itemId;
-    const columnId = req.body.columnId;
 
     console.log("Uploading file:", file.originalname);
     console.log("Item:", itemId);
     console.log("Column:", columnId);
 
-    const query = `
-      mutation ($file: File!, $itemId: ID!, $columnId: String!) {
-        add_file_to_column(
-          item_id: $itemId,
-          column_id: $columnId,
-          file: $file
-        ) {
-          id
+    // GraphQL mutation
+    const operations = JSON.stringify({
+      query: `
+        mutation ($file: File!) {
+          add_file_to_column(
+            item_id: ${itemId},
+            column_id: "${columnId}",
+            file: $file
+          ) {
+            id
+          }
         }
-      }
-    `;
+      `,
+      variables: { file: null }
+    });
+
+    const map = JSON.stringify({
+      "0": ["variables.file"]
+    });
 
     const formData = new FormData();
-
-    formData.append(
-      "operations",
-      JSON.stringify({
-        query: query,
-        variables: {
-          file: null,
-          itemId: itemId,
-          columnId: columnId
-        }
-      })
-    );
-
-    formData.append(
-      "map",
-      JSON.stringify({
-        "0": ["variables.file"]
-      })
-    );
-
+    formData.append("operations", operations);
+    formData.append("map", map);
     formData.append("0", fs.createReadStream(file.path));
 
+    // 🚨 CRITICAL: must include formData headers
     const response = await fetch("https://api.monday.com/v2/file", {
       method: "POST",
       headers: {
-        Authorization: MONDAY_TOKEN
+        Authorization: MONDAY_TOKEN,
+        ...formData.getHeaders()
       },
       body: formData
     });
@@ -82,6 +73,9 @@ app.post("/upload", upload.single("file"), async (req, res) => {
   }
 });
 
+// ===============================
+// START SERVER
+// ===============================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
