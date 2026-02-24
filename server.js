@@ -20,19 +20,22 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     console.log("Item:", itemId);
     console.log("Column:", columnId);
 
-    const formData = new FormData();
-    formData.append("query", `
-      mutation ($file: File!) {
-        add_file_to_column (
-          item_id: ${itemId},
-          column_id: "${columnId}",
-          file: $file
-        ) {
-          id
-        }
-      }
-    `);
-    formData.append("file", fs.createReadStream(file.path));
+    const query = `
+mutation ($file: File!) {
+  add_file_to_column (
+    item_id: ${itemId},
+    column_id: "${columnId}",
+    file: $file
+  ) {
+    id
+  }
+}
+`;
+
+const formData = new FormData();
+formData.append("query", query);
+formData.append("map", JSON.stringify({ "file": ["variables.file"] }));
+formData.append("variables[file]", fs.createReadStream(file.path));
 
     const response = await fetch("https://api.monday.com/v2/file", {
       method: "POST",
@@ -66,3 +69,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
 });
+
